@@ -132,7 +132,7 @@ footer p { margin: 0 0 8px; }
   <p class="lead">A guest messages the hotel on WhatsApp and gets the hotel's own words back in Malay, English or Chinese. Everything between those two moments is a Kapso workflow, one Cloudflare Worker, and a model that is only called when no ready-made reply fits. Tap any diagram to see it full size.</p>
   <div class="stats">
     <div class="stat"><b>43</b><span>ready-made replies, each written once in ms / en / zh and sent word for word</span></div>
-    <div class="stat"><b>1 call</b><span>to the model for most answers, about 4–5.5 s end to end</span></div>
+    <div class="stat"><b>1 call</b><span>to the model for most answers, about 4–5.5 s end to end, with no per-chat reply limit</span></div>
     <div class="stat"><b>0 servers</b><span>of ours in the path: Kapso hosts the workflow, Cloudflare runs the function</span></div>
     <div class="stat"><b>439</b><span>local assertions gate every change — 312 on harper-ops, 127 on harper-watch</span></div>
   </div>
@@ -328,16 +328,16 @@ footer p { margin: 0 0 8px; }
 
     <rect class="d-box violet" x="276" y="134" width="212" height="64" rx="12"/>
     <text class="d-t sm" x="294" y="160">6 · is this a card tap?</text>
-    <text class="d-s tiny" x="294" y="179">if so, it spends no cap slot</text>
+    <text class="d-s tiny" x="294" y="179">answered with no model call</text>
 
     <rect class="d-box accent" x="276" y="212" width="212" height="88" rx="12"/>
-    <text class="d-t sm" x="294" y="238">7 · the reply cap</text>
-    <text class="d-s tiny" x="294" y="257">8 answers per 10 minutes;</text>
-    <text class="d-s tiny" x="294" y="273">the 9th hands off, and the</text>
-    <text class="d-s tiny" x="294" y="289">handover line is said once</text>
+    <text class="d-t sm" x="294" y="238">7 · the reply cap — OFF</text>
+    <text class="d-s tiny" x="294" y="257">removed 17 Oct. Set the secret</text>
+    <text class="d-s tiny" x="294" y="273">AUTO_REPLY_LIMIT to bring it</text>
+    <text class="d-s tiny" x="294" y="289">back: N-1 answers, then handoff</text>
 
     <rect class="d-box pos" x="276" y="314" width="212" height="56" rx="12" style="fill:rgba(47,211,166,.12);stroke:rgba(47,211,166,.5)"/>
-    <text class="d-t sm" x="294" y="338">8 · spend a slot → agent</text>
+    <text class="d-t sm" x="294" y="338">8 · on to the concierge</text>
     <text class="d-s tiny" x="294" y="356">on to the concierge node</text>
 
     <path class="d-ln plain" d="M130 120 L130 132" stroke="rgba(255,255,255,.3)"/>
@@ -353,17 +353,17 @@ footer p { margin: 0 0 8px; }
     <text class="d-s" x="566" y="132">no model call at all. Until 16 Oct the guard still spent</text>
     <text class="d-s" x="566" y="150">a cap slot on each one, so a guest who browsed every</text>
     <text class="d-s" x="566" y="168">room was handed to a front desk that may not be there.</text>
-    <text class="d-s" x="566" y="186">A tap now costs nothing — unless the router is off.</text>
+    <text class="d-s" x="566" y="186">Moot while the cap is off, and correct again if it returns.</text>
 
     <rect class="d-box" x="546" y="222" width="410" height="148" rx="14"/>
-    <text class="d-t" x="566" y="254">What the cap is for</text>
-    <text class="d-s" x="566" y="280">It is the fuse against a runaway loop, not a budget. An</text>
-    <text class="d-s" x="566" y="298">escalated conversation answers nothing at all — taps</text>
-    <text class="d-s" x="566" y="316">included — because staff are already coming. The ten-</text>
-    <text class="d-s" x="566" y="334">minute window rolling is what releases it again, and</text>
-    <text class="d-s" x="566" y="352">the told-once flag clears with it.</text>
+    <text class="d-t" x="566" y="254">What bounds a runaway</text>
+    <text class="d-s" x="566" y="280">The per-conversation cap is a switch, and opt-in. The</text>
+    <text class="d-s" x="566" y="298">standing backstop is a daily execution fuse, and when</text>
+    <text class="d-s" x="566" y="316">it trips it sets the workflow to draft, which takes the</text>
+    <text class="d-s" x="566" y="334">line down for every guest rather than for the one</text>
+    <text class="d-s" x="566" y="352">conversation that is looping.</text>
   </svg>
-  </button><figcaption><b>Inside the guard.</b> Steps 1 to 5 end the turn with either silence or one fixed line, and never reach the model. Step 6 was added on 16 October 2026: a tap on one of our own cards is answered by fixed code, so it no longer spends one of the eight replies. Conversation state lives in KV under <code>conv:v1:&lt;digits&gt;</code> with a 30-day TTL.</figcaption></figure>
+  </button><figcaption><b>Inside the guard.</b> Steps 1 to 5 end the turn with either silence or one fixed line, and never reach the model. Step 6 was added on 16 October 2026, when a tap still spent one of the eight replies; the cap itself was removed on 17 October and is now opt-in through <code>AUTO_REPLY_LIMIT</code>. Conversation state lives in KV under <code>conv:v1:&lt;digits&gt;</code> with a 30-day TTL.</figcaption></figure>
 
   </div>
 </div></section>
