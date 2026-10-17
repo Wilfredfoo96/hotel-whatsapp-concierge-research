@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harper Concierge: architecture</title>
+<style>
+:root {
+  --bg: #05060c; --bg2: #10142a; --blue: #5b7cff; --violet: #a77bff; --yellow: #ffc83d;
+  --text: #eef1fa; --muted: #9aa3bd; --line: #262c47; --pos: #2fd3a6; --neg: #ff6b6b;
+  --glass: linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.03));
+  --stroke: 1px solid rgba(255,255,255,.16);
+  --title: "Avenir Next", "Avenir", "Segoe UI", system-ui, sans-serif;
+  --body: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --mono: Menlo, ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 var(--body); -webkit-font-smoothing: antialiased; }
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(1100px 620px at 78% -8%, rgba(91,124,255,.20), transparent 62%),
+              radial-gradient(820px 520px at 8% 4%, rgba(167,123,255,.14), transparent 60%);
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+nav {
+  position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px);
+  background: rgba(5,6,12,.76); border-bottom: 1px solid var(--line);
+}
+nav .wrap { display: flex; align-items: center; gap: 26px; height: 56px; }
+nav b { font-family: var(--title); font-size: 18px; letter-spacing: -.01em; }
+nav a { color: var(--muted); text-decoration: none; font-size: 14px; white-space: nowrap; }
+nav a:hover { color: var(--text); }
+nav .links { display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none; }
+nav .links::-webkit-scrollbar { display: none; }
+
+header { padding: 72px 0 8px; }
+.eyebrow {
+  display: block; font-family: var(--mono); font-size: 12px; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 20px;
+}
+h1 { font-family: var(--title); font-size: clamp(34px, 5.4vw, 60px); line-height: 1.04; letter-spacing: -.025em; margin: 0 0 22px; }
+h2 { font-family: var(--title); font-size: clamp(26px, 3.4vw, 38px); line-height: 1.12; letter-spacing: -.02em; margin: 0 0 18px; }
+h3 { font-family: var(--title); font-size: 19px; letter-spacing: -.01em; margin: 0 0 8px; }
+.lead { color: var(--muted); font-size: clamp(17px, 2vw, 20px); max-width: 68ch; margin: 0 0 36px; }
+section { padding: 60px 0; border-top: 1px solid var(--line); }
+section:first-of-type { border-top: 0; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin: 34px 0 10px; }
+.stat { background: var(--glass); border: var(--stroke); border-radius: 16px; padding: 20px; }
+.stat b { display: block; font-family: var(--title); font-size: 27px; letter-spacing: -.02em; margin-bottom: 6px; }
+.stat span { color: var(--muted); font-size: 14px; line-height: 1.45; }
+
+.diagrams { display: grid; gap: 22px; }
+.diagram { margin: 0; background: var(--glass); border: var(--stroke); border-radius: 18px; overflow: hidden; }
+.diagram .zoom { display: block; width: 100%; padding: 18px 18px 6px; background: none; border: 0; cursor: zoom-in; }
+.diagram svg { display: block; width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 15px; line-height: 1.5; padding: 10px 22px 20px; }
+figcaption b { color: var(--text); }
+
+table { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 10px; }
+th, td { text-align: left; padding: 13px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+td code, p code, li code { font-family: var(--mono); font-size: 13px; color: var(--text); background: rgba(255,255,255,.07); border-radius: 5px; padding: 2px 6px; }
+td:first-child { white-space: nowrap; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; margin-top: 26px; }
+.card { background: var(--glass); border: var(--stroke); border-radius: 16px; padding: 22px; }
+.card p { color: var(--muted); font-size: 15px; margin: 0; }
+.tag { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; border-radius: 999px; padding: 4px 11px; border: 1px solid rgba(255,255,255,.2); color: var(--muted); margin-bottom: 12px; }
+.tag.live { color: var(--pos); border-color: rgba(47,211,166,.45); }
+.tag.off { color: var(--yellow); border-color: rgba(255,200,61,.45); }
+.tag.no { color: var(--neg); border-color: rgba(255,107,107,.45); }
+
+footer { padding: 46px 0 70px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+footer p { margin: 0 0 8px; }
+
+#lightbox { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: rgba(2,3,8,.93); padding: 24px; cursor: zoom-out; }
+#lightbox.on { display: grid; }
+#lightbox > div { width: min(1400px, 100%); max-height: 92vh; overflow: auto; }
+#lightbox svg { width: 100%; height: auto; }
+
+/* diagram primitives */
+.d-box { fill: rgba(255,255,255,.055); stroke: rgba(255,255,255,.19); stroke-width: 1; }
+.d-box.accent { fill: rgba(91,124,255,.15); stroke: rgba(91,124,255,.55); }
+.d-box.violet { fill: rgba(167,123,255,.14); stroke: rgba(167,123,255,.5); }
+.d-box.warm { fill: rgba(255,200,61,.11); stroke: rgba(255,200,61,.45); }
+.d-box.dim { fill: rgba(255,255,255,.03); stroke: rgba(255,255,255,.14); stroke-dasharray: 5 4; }
+.d-t { fill: #eef1fa; font-family: var(--title); font-size: 15px; font-weight: 600; }
+.d-t.sm { font-size: 13.5px; }
+.d-s { fill: #9aa3bd; font-family: var(--mono); font-size: 11px; }
+.d-s.tiny { font-size: 10px; }
+.d-lbl { fill: #9aa3bd; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.d-ln { stroke: rgba(255,255,255,.3); stroke-width: 1.4; fill: none; marker-end: url(#ar); }
+.d-ln.blue { stroke: var(--blue); marker-end: url(#ab); }
+.d-ln.pos { stroke: var(--pos); marker-end: url(#ap); }
+.d-ln.neg { stroke: var(--neg); marker-end: url(#an); }
+.d-ln.dash { stroke-dasharray: 5 4; }
+.d-ln.plain { marker-end: none; }
+@media (max-width: 640px) {
+  figcaption { padding: 10px 18px 18px; }
+  .diagram .zoom { padding: 14px 12px 4px; }
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="rgba(255,255,255,.45)"/></marker>
+  <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b7cff"/></marker>
+  <marker id="ap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2fd3a6"/></marker>
+  <marker id="an" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ff6b6b"/></marker>
+</defs></svg>
+
+<nav><div class="wrap">
+  <b>Harper</b>
+  <div class="links">
+    <a href="#context">Context</a>
+    <a href="#turn">One turn</a>
+    <a href="#guard">Guard</a>
+    <a href="#answer">Answering</a>
+    <a href="#words">The words</a>
+    <a href="#watch">Watchdog</a>
+    <a href="#runs">What runs where</a>
+    <a href="#switches">Switches</a>
+  </div>
+</div></nav>
+
+<header><div class="wrap">
+  <span class="eyebrow">Architecture · Harper Boutique Hotel · WhatsApp concierge</span>
+  <h1>One number. Three languages. No server of our own.</h1>
+  <p class="lead">A guest messages the hotel on WhatsApp and gets the hotel's own words back in Malay, English or Chinese. Everything between those two moments is a Kapso workflow, one Cloudflare Worker, and a model that is only called when no ready-made reply fits. Tap any diagram to see it full size.</p>
+  <div class="stats">
+    <div class="stat"><b>43</b><span>ready-made replies, each written once in ms / en / zh and sent word for word</span></div>
+    <div class="stat"><b>1 call</b><span>to the model for most answers, about 4–5.5 s end to end</span></div>
+    <div class="stat"><b>0 servers</b><span>of ours in the path: Kapso hosts the workflow, Cloudflare runs the function</span></div>
+    <div class="stat"><b>439</b><span>local assertions gate every change — 312 on harper-ops, 127 on harper-watch</span></div>
+  </div>
+</div></header>
+
+<section id="context"><div class="wrap">
+  <span class="eyebrow">System context</span>
+  <h2>Who talks to what.</h2>
+  <p class="lead">Five things sit between the guest and an answer, and only one of them is ours to run.</p>
+  <div class="diagrams">
+
+  <figure class="diagram"><button class="zoom" type="button" aria-label="Enlarge diagram">
+  <svg viewBox="0 0 980 470" role="img" aria-label="System context diagram">
+    <text class="d-lbl" x="24" y="24">The path every message takes</text>
+
+    <rect class="d-box" x="24" y="176" width="164" height="86" rx="13"/>
+    <text class="d-t" x="42" y="212">Guest</text>
+    <text class="d-s" x="42" y="232">WhatsApp, ms / en / zh</text>
+
+    <rect class="d-box" x="228" y="176" width="164" height="86" rx="13"/>
+    <text class="d-t" x="246" y="212">Meta Cloud API</text>
+    <text class="d-s" x="246" y="232">the hotel WhatsApp number</text>
+
+    <rect class="d-box accent" x="432" y="176" width="164" height="86" rx="13"/>
+    <text class="d-t" x="450" y="206">Kapso</text>
+    <text class="d-s" x="450" y="226">workflow + inbox</text>
+    <text class="d-s" x="450" y="242">messages API</text>
+
+    <rect class="d-box accent" x="636" y="176" width="164" height="86" rx="13"/>
+    <text class="d-t" x="654" y="206">harper-ops</text>
+    <text class="d-s" x="654" y="226">Cloudflare Worker</text>
+    <text class="d-s" x="654" y="242">all the logic</text>
+
+    <rect class="d-box violet" x="820" y="176" width="136" height="86" rx="13"/>
+    <text class="d-t sm" x="836" y="206">Claude</text>
+    <text class="d-s" x="836" y="226">Sonnet 5</text>
+    <text class="d-s tiny" x="836" y="242">hotel's own key</text>
+
+    <path class="d-ln blue" d="M188 206 L226 206"/>
+    <path class="d-ln blue" d="M392 206 L430 206"/>
+    <path class="d-ln blue" d="M596 206 L634 206"/>
+    <path class="d-ln blue" d="M800 206 L818 206"/>
+    <path class="d-ln" d="M818 240 L802 240"/>
+    <path class="d-ln" d="M634 240 L598 240"/>
+    <path class="d-ln" d="M430 240 L394 240"/>
+    <path class="d-ln" d="M226 240 L190 240"/>
+    <text class="d-s tiny" x="196" y="166">inbound →</text>
+    <text class="d-s tiny" x="196" y="268">← the reply</text>
+
+    <rect class="d-box warm" x="636" y="48" width="164" height="76" rx="13"/>
+    <text class="d-t sm" x="654" y="76">Staff phone</text>
+    <text class="d-s" x="654" y="95">1:1 request alerts</text>
+    <text class="d-s tiny" x="654" y="111">24 h window only</text>
+    <path class="d-ln dash" d="M718 174 L718 126"/>
+
+    <rect class="d-box" x="820" y="48" width="136" height="76" rx="13"/>
+    <text class="d-t sm" x="836" y="76">harper-watch</text>
+    <text class="d-s tiny" x="836" y="95">its own Cloudflare</text>
+    <text class="d-s tiny" x="836" y="110">account, 5-min cron</text>
+    <path class="d-ln dash" d="M888 126 L888 174"/>
+
+    <rect class="d-box" x="432" y="320" width="164" height="90" rx="13"/>
+    <text class="d-t sm" x="450" y="348">harper-hotel.com</text>
+    <text class="d-s" x="450" y="367">booking page</text>
+    <text class="d-s" x="450" y="383">room photos</text>
+    <text class="d-s tiny" x="450" y="399">the source of every fact</text>
+
+    <rect class="d-box" x="636" y="320" width="164" height="90" rx="13"/>
+    <text class="d-t sm" x="654" y="348">Worker storage</text>
+    <text class="d-s" x="654" y="367">KV — conversation state</text>
+    <text class="d-s" x="654" y="383">D1 — escalations,</text>
+    <text class="d-s" x="654" y="399">the unmatched gap log</text>
+    <path class="d-ln plain" d="M718 262 L718 318" stroke="rgba(255,255,255,.3)"/>
+
+    <rect class="d-box dim" x="820" y="320" width="136" height="90" rx="13"/>
+    <text class="d-t sm" x="836" y="348">GuestPro</text>
+    <text class="d-s tiny" x="836" y="367">the PMS seam</text>
+    <text class="d-s tiny" x="836" y="383">live availability,</text>
+    <text class="d-s tiny" x="836" y="399">switched off</text>
+    <path class="d-ln dash plain" d="M800 364 L818 364"/>
+  </svg>
+  </button><figcaption><b>System context.</b> The guest's message reaches Kapso through Meta's Cloud API; Kapso runs the workflow and calls <code>harper-ops</code>, a Cloudflare Worker that holds every decision. The model is only reached from there, on the hotel's own key. Nothing in the path is a server we operate. The dashed boxes are seams, not traffic: <code>harper-watch</code> runs on a different Cloudflare account on purpose, and GuestPro is wired but switched off.</figcaption></figure>
+
+  </div>
+</div></section>
+
+<section id="turn"><div class="wrap">
+  <span class="eyebrow">One turn</span>
+  <h2>Every message runs the same nine nodes.</h2>
+  <p class="lead">The workflow is deliberately thin. It decides nothing itself: both <code>decide</code> nodes hand the question straight to the function and route on the edge label that comes back.</p>
+  <div class="diagrams">
+
+  <figure class="diagram"><button class="zoom" type="button" aria-label="Enlarge diagram">
+  <svg viewBox="0 0 980 440" role="img" aria-label="Workflow nodes and edges">
+    <text class="d-lbl" x="24" y="24">Workflow harper-concierge · trigger: inbound_message</text>
+
+    <rect class="d-box" x="24" y="186" width="118" height="64" rx="12"/>
+    <text class="d-t sm" x="40" y="214">start</text>
+    <text class="d-s tiny" x="40" y="232">set_variable</text>
+
+    <rect class="d-box accent" x="182" y="178" width="150" height="80" rx="13"/>
+    <text class="d-t" x="200" y="208">guard</text>
+    <text class="d-s" x="200" y="227">decide → function</text>
+    <text class="d-s tiny" x="200" y="243">answer, or stop here</text>
+
+    <rect class="d-box accent" x="430" y="178" width="164" height="80" rx="13"/>
+    <text class="d-t" x="448" y="208">concierge</text>
+    <text class="d-s" x="448" y="227">decide → function</text>
+    <text class="d-s tiny" x="448" y="243">router, else the model</text>
+
+    <rect class="d-box" x="372" y="110" width="80" height="34" rx="9"/>
+    <text class="d-s" x="386" y="131">action</text>
+
+    <rect class="d-box" x="690" y="60" width="150" height="62" rx="12"/>
+    <text class="d-t sm" x="706" y="86">concierge_done</text>
+    <text class="d-s tiny" x="706" y="104">nothing left to do</text>
+
+    <rect class="d-box warm" x="690" y="146" width="150" height="62" rx="12"/>
+    <text class="d-t sm" x="706" y="172">fail_notice</text>
+    <text class="d-s tiny" x="706" y="190">send_text, then →</text>
+
+    <rect class="d-box warm" x="690" y="232" width="150" height="62" rx="12"/>
+    <text class="d-t sm" x="706" y="258">staff_handoff</text>
+    <text class="d-s tiny" x="706" y="276">a human takes over</text>
+
+    <rect class="d-box" x="182" y="318" width="150" height="58" rx="12"/>
+    <text class="d-t sm" x="198" y="342">optout_ack</text>
+    <text class="d-s tiny" x="198" y="360">STOP / START</text>
+
+    <rect class="d-box" x="372" y="318" width="150" height="58" rx="12"/>
+    <text class="d-t sm" x="388" y="342">silent_end</text>
+    <text class="d-s tiny" x="388" y="360">say nothing at all</text>
+
+    <rect class="d-box warm" x="562" y="318" width="150" height="58" rx="12"/>
+    <text class="d-t sm" x="578" y="342">guard_handoff</text>
+    <text class="d-s tiny" x="578" y="360">the reply cap tripped</text>
+
+    <path class="d-ln" d="M142 218 L180 218"/>
+    <path class="d-ln blue" d="M332 206 L370 180 L370 146"/>
+    <path class="d-ln blue" d="M452 144 L452 176"/>
+    <text class="d-s tiny" x="338" y="176">agent</text>
+
+    <path class="d-ln pos" d="M594 198 L642 198 L642 92 L688 92"/>
+    <text class="d-s tiny" x="606" y="126">done</text>
+    <path class="d-ln" d="M594 214 L660 214 L660 178 L688 178"/>
+    <text class="d-s tiny" x="606" y="208">failed</text>
+    <path class="d-ln" d="M594 236 L660 236 L660 264 L688 264"/>
+    <text class="d-s tiny" x="600" y="250">handoff</text>
+    <text class="d-s tiny" x="600" y="264">failed_told</text>
+    <path class="d-ln dash" d="M765 208 L765 230"/>
+
+    <path class="d-ln" d="M248 258 L248 316"/>
+    <text class="d-s tiny" x="140" y="292">opt_out_ack</text>
+    <path class="d-ln" d="M276 258 L276 290 L440 290 L440 316"/>
+    <text class="d-s tiny" x="300" y="284">silent · media_prompt</text>
+    <path class="d-ln neg" d="M304 258 L304 302 L630 302 L630 316"/>
+    <text class="d-s tiny" x="540" y="298">escalate</text>
+  </svg>
+  </button><figcaption><b>One turn.</b> <code>guard</code> runs first and can end the turn four different ways without the model ever being asked. Only the <code>agent</code> edge continues to <code>concierge</code>, which returns <code>done</code>, <code>handoff</code>, <code>failed</code> or <code>failed_told</code>. The <code>action</code> variable is reset between the two decide nodes so that, if Kapso ever carried variables into the next execution, that execution's guard would still run as the guard.</figcaption></figure>
+
+  </div>
+</div></section>
+
+<section id="guard"><div class="wrap">
+  <span class="eyebrow">Inside the guard</span>
+  <h2>Eight checks before anyone is answered.</h2>
+  <p class="lead">The guard is where the cheap decisions live. Every check that can end a turn without a model call, or without a message at all, happens here in a fixed order.</p>
+  <div class="diagrams">
+
+  <figure class="diagram"><button class="zoom" type="button" aria-label="Enlarge diagram">
+  <svg viewBox="0 0 980 420" role="img" aria-label="Guard decision order">
+    <text class="d-lbl" x="24" y="24">In order. The first one that matches ends the turn.</text>
+
+    <rect class="d-box" x="24" y="56" width="212" height="64" rx="12"/>
+    <text class="d-t sm" x="42" y="82">1 · STOP / START</text>
+    <text class="d-s tiny" x="42" y="101">opted out → silence, for good</text>
+
+    <rect class="d-box" x="24" y="134" width="212" height="64" rx="12"/>
+    <text class="d-t sm" x="42" y="160">2 · a human holds it</text>
+    <text class="d-s tiny" x="42" y="179">staff are mid-conversation</text>
+
+    <rect class="d-box" x="24" y="212" width="212" height="64" rx="12"/>
+    <text class="d-t sm" x="42" y="238">3 · first contact, no words</text>
+    <text class="d-s tiny" x="42" y="257">digits or emoji → language picker</text>
+
+    <rect class="d-box" x="24" y="290" width="212" height="64" rx="12"/>
+    <text class="d-t sm" x="42" y="316">4 · a file it cannot read</text>
+    <text class="d-s tiny" x="42" y="335">video, sticker → "please type it"</text>
+
+    <rect class="d-box" x="276" y="56" width="212" height="64" rx="12"/>
+    <text class="d-t sm" x="294" y="82">5 · "ok", "thanks", 👍</text>
+    <text class="d-s tiny" x="294" y="101">after a statement → say nothing</text>
+
+    <rect class="d-box violet" x="276" y="134" width="212" height="64" rx="12"/>
+    <text class="d-t sm" x="294" y="160">6 · is this a card tap?</text>
+    <text class="d-s tiny" x="294" y="179">if so, it spends no cap slot</text>
+
+    <rect class="d-box accent" x="276" y="212" width="212" height="88" rx="12"/>
+    <text class="d-t sm" x="294" y="238">7 · the reply cap</text>
+    <text class="d-s tiny" x="294" y="257">8 answers per 10 minutes;</text>
+    <text class="d-s tiny" x="294" y="273">the 9th hands off, and the</text>
+    <text class="d-s tiny" x="294" y="289">handover line is said once</text>
+
+    <rect class="d-box pos" x="276" y="314" width="212" height="56" rx="12" style="fill:rgba(47,211,166,.12);stroke:rgba(47,211,166,.5)"/>
+    <text class="d-t sm" x="294" y="338">8 · spend a slot → agent</text>
+    <text class="d-s tiny" x="294" y="356">on to the concierge node</text>
+
+    <path class="d-ln plain" d="M130 120 L130 132" stroke="rgba(255,255,255,.3)"/>
+    <path class="d-ln plain" d="M130 198 L130 210" stroke="rgba(255,255,255,.3)"/>
+    <path class="d-ln plain" d="M130 276 L130 288" stroke="rgba(255,255,255,.3)"/>
+    <path class="d-ln" d="M130 354 L130 388 L382 388 L382 122"/>
+    <path class="d-ln plain" d="M382 198 L382 210" stroke="rgba(255,255,255,.3)"/>
+    <path class="d-ln plain" d="M382 300 L382 312" stroke="rgba(255,255,255,.3)"/>
+
+    <rect class="d-box violet" x="546" y="56" width="410" height="150" rx="14"/>
+    <text class="d-t" x="566" y="88">Why step 6 exists</text>
+    <text class="d-s" x="566" y="114">The nine room cards are answered by fixed code, with</text>
+    <text class="d-s" x="566" y="132">no model call at all. Until 16 Oct the guard still spent</text>
+    <text class="d-s" x="566" y="150">a cap slot on each one, so a guest who browsed every</text>
+    <text class="d-s" x="566" y="168">room was handed to a front desk that may not be there.</text>
+    <text class="d-s" x="566" y="186">A tap now costs nothing — unless the router is off.</text>
+
+    <rect class="d-box" x="546" y="222" width="410" height="148" rx="14"/>
+    <text class="d-t" x="566" y="254">What the cap is for</text>
+    <text class="d-s" x="566" y="280">It is the fuse against a runaway loop, not a budget. An</text>
+    <text class="d-s" x="566" y="298">escalated conversation answers nothing at all — taps</text>
+    <text class="d-s" x="566" y="316">included — because staff are already coming. The ten-</text>
+    <text class="d-s" x="566" y="334">minute window rolling is what releases it again, and</text>
+    <text class="d-s" x="566" y="352">the told-once flag clears with it.</text>
+  </svg>
+  </button><figcaption><b>Inside the guard.</b> Steps 1 to 5 end the turn with either silence or one fixed line, and never reach the model. Step 6 was added on 16 October 2026: a tap on one of our own cards is answered by fixed code, so it no longer spends one of the eight replies. Conversation state lives in KV under <code>conv:v1:&lt;digits&gt;</code> with a 30-day TTL.</figcaption></figure>
+
+  </div>
+</div></section>
+
+<section id="answer"><div class="wrap">
+  <span class="eyebrow">Answering</span>
+  <h2>The model is the last resort, not the first.</h2>
+  <p class="lead">Most answers never reach Claude. The ones that do are chosen from a list the hotel wrote, and the model's own prose is checked before it can be sent.</p>
+  <div class="diagrams">
+
+  <figure class="diagram"><button class="zoom" type="button" aria-label="Enlarge diagram">
+  <svg viewBox="0 0 980 440" role="img" aria-label="How an answer is chosen">
+    <rect class="d-box" x="24" y="186" width="150" height="68" rx="12"/>
+    <text class="d-t sm" x="42" y="214">The turn</text>
+    <text class="d-s tiny" x="42" y="232">passed the guard</text>
+
+    <rect class="d-box violet" x="216" y="92" width="210" height="112" rx="13"/>
+    <text class="d-t" x="236" y="122">Fixed router</text>
+    <text class="d-s" x="236" y="144">no model, no cost</text>
+    <text class="d-s tiny" x="236" y="164">card taps · greetings · menu</text>
+    <text class="d-s tiny" x="236" y="180">language picker · a shared pin</text>
+    <text class="d-s tiny" x="236" y="196">ROUTER_ENABLED=1</text>
+
+    <rect class="d-box accent" x="216" y="236" width="210" height="150" rx="13"/>
+    <text class="d-t" x="236" y="266">Claude Sonnet 5</text>
+    <text class="d-s" x="236" y="288">gets the last 30 messages,</text>
+    <text class="d-s" x="236" y="306">fetched from Kapso — the</text>
+    <text class="d-s" x="236" y="324">trigger payload has only</text>
+    <text class="d-s" x="236" y="342">this turn's message</text>
+    <text class="d-s tiny" x="236" y="366">forced to call a tool until</text>
+    <text class="d-s tiny" x="236" y="382">the guest has an answer</text>
+
+    <path class="d-ln blue" d="M174 206 L196 206 L196 148 L214 148"/>
+    <path class="d-ln blue" d="M174 232 L196 232 L196 300 L214 300"/>
+    <text class="d-s tiny" x="140" y="166">a tap?</text>
+    <text class="d-s tiny" x="130" y="282">anything else</text>
+
+    <rect class="d-box" x="470" y="92" width="200" height="112" rx="13"/>
+    <text class="d-t sm" x="488" y="120">send_preset</text>
+    <text class="d-s" x="488" y="142">one of 43 replies,</text>
+    <text class="d-s" x="488" y="160">word for word, in the</text>
+    <text class="d-s" x="488" y="178">guest's own language</text>
+    <text class="d-s tiny" x="488" y="196">the hotel wrote all of them</text>
+
+    <rect class="d-box warm" x="470" y="236" width="200" height="112" rx="13"/>
+    <text class="d-t sm" x="488" y="264">send_reply</text>
+    <text class="d-s" x="488" y="286">free text, only when</text>
+    <text class="d-s" x="488" y="304">nothing on the list fits</text>
+    <text class="d-s tiny" x="488" y="326">logged, masked, to the</text>
+    <text class="d-s tiny" x="488" y="342">unmatched gap log in D1</text>
+
+    <path class="d-ln" d="M426 148 L468 148"/>
+    <path class="d-ln" d="M426 292 L468 292"/>
+    <path class="d-ln" d="M426 272 L450 272 L450 160 L468 160"/>
+
+    <rect class="d-box neg" x="716" y="160" width="240" height="120" rx="14" style="fill:rgba(255,107,107,.1);stroke:rgba(255,107,107,.45)"/>
+    <text class="d-t" x="736" y="192">The price gate</text>
+    <text class="d-s" x="736" y="216">Every outgoing string is swept</text>
+    <text class="d-s" x="736" y="234">for an amount. A blocked reply</text>
+    <text class="d-s" x="736" y="252">is rewritten once; a second</text>
+    <text class="d-s" x="736" y="270">failure hands off to a person.</text>
+
+    <path class="d-ln neg" d="M670 160 L700 180 L714 192"/>
+    <path class="d-ln neg" d="M670 280 L700 262 L714 250"/>
+
+    <rect class="d-box" x="716" y="306" width="240" height="96" rx="14"/>
+    <text class="d-t sm" x="736" y="334">Then, if staff must act</text>
+    <text class="d-s tiny" x="736" y="356">create_request → a 1:1 WhatsApp</text>
+    <text class="d-s tiny" x="736" y="372">alert, the guest's last 4 digits only</text>
+    <text class="d-s tiny" x="736" y="388">handoff_to_human → a person owns it</text>
+
+    <rect class="d-box" x="24" y="306" width="150" height="96" rx="12"/>
+    <text class="d-t sm" x="42" y="332">Always after text</text>
+    <text class="d-s tiny" x="42" y="354">send_card adds a pin,</text>
+    <text class="d-s tiny" x="42" y="370">a booking link, a photo</text>
+    <text class="d-s tiny" x="42" y="386">or buttons — never instead</text>
+  </svg>
+  </button><figcaption><b>Answering.</b> A card tap is handled by fixed code and costs nothing. Everything else goes to Claude, which is forced to keep calling tools until the guest actually has an answer, and which prefers <code>send_preset</code> — the hotel's exact words — over writing its own. Free text is the exception, and every one is logged to the gap log so the next batch of ready-made replies writes itself.</figcaption></figure>
+
+  </div>
+</div></section>
+
+<section id="words"><div class="wrap">
+  <span class="eyebrow">Where the words come from</span>
+  <h2>One file, three languages, built into the function.</h2>
+  <p class="lead">A Kapso function is a single wrapped file with no imports, so the prompt and the replies are spliced into it at build time rather than loaded at runtime.</p>
+  <div class="diagrams">
+
+  <figure class="diagram"><button class="zoom" type="button" aria-label="Enlarge diagram">
+  <svg viewBox="0 0 980 300" role="img" aria-label="Prompt and preset build pipeline">
+    <rect class="d-box" x="24" y="52" width="186" height="76" rx="12"/>
+    <text class="d-t sm" x="42" y="80">presets.json</text>
+    <text class="d-s tiny" x="42" y="99">43 live replies, ms/en/zh</text>
+    <text class="d-s tiny" x="42" y="115">plus the tap → reply map</text>
+
+    <rect class="d-box" x="24" y="156" width="186" height="76" rx="12"/>
+    <text class="d-t sm" x="42" y="184">policy.md</text>
+    <text class="d-s tiny" x="42" y="203">who the bot is, how it</text>
+    <text class="d-s tiny" x="42" y="219">answers, the house rules</text>
+
+    <rect class="d-box accent" x="266" y="96" width="196" height="96" rx="13"/>
+    <text class="d-t sm" x="284" y="124">build-prompt.mjs</text>
+    <text class="d-s tiny" x="284" y="145">validates every id, card,</text>
+    <text class="d-s tiny" x="284" y="161">tap target and language</text>
+    <text class="d-s tiny" x="284" y="177">refuses non-UTF-8 text</text>
+
+    <rect class="d-box" x="518" y="40" width="200" height="72" rx="12"/>
+    <text class="d-t sm" x="536" y="66">SYSTEM_PROMPT</text>
+    <text class="d-s tiny" x="536" y="85">policy + a one-line index</text>
+    <text class="d-s tiny" x="536" y="101">of the 43 replies</text>
+
+    <rect class="d-box" x="518" y="128" width="200" height="60" rx="12"/>
+    <text class="d-t sm" x="536" y="154">PRESETS</text>
+    <text class="d-s tiny" x="536" y="173">the reply text itself</text>
+
+    <rect class="d-box dim" x="518" y="204" width="200" height="60" rx="12"/>
+    <text class="d-t sm" x="536" y="230">SYSTEM_PROMPT_LEGACY</text>
+    <text class="d-s tiny" x="536" y="249">the rollback prompt</text>
+
+    <rect class="d-box accent" x="774" y="96" width="182" height="96" rx="13"/>
+    <text class="d-t sm" x="792" y="124">harper-ops/index.js</text>
+    <text class="d-s tiny" x="792" y="145">spliced between markers,</text>
+    <text class="d-s tiny" x="792" y="161">then pushed to Kapso</text>
+    <text class="d-s tiny" x="792" y="177">never edited by hand</text>
+
+    <path class="d-ln" d="M210 90 L240 90 L240 136 L264 136"/>
+    <path class="d-ln" d="M210 194 L240 194 L240 152 L264 152"/>
+    <path class="d-ln" d="M462 128 L490 128 L490 76 L516 76"/>
+    <path class="d-ln" d="M462 144 L516 152"/>
+    <path class="d-ln dash" d="M462 160 L490 160 L490 234 L516 234"/>
+    <path class="d-ln" d="M718 76 L746 76 L746 136 L772 136"/>
+    <path class="d-ln" d="M718 158 L772 150"/>
+
+    <text class="d-lbl" x="266" y="226">The budget is the point</text>
+    <text class="d-s" x="266" y="250">The prompt is the cached prefix, paid for on</text>
+    <text class="d-s" x="266" y="268">every cache miss. 7,730 B of a 12,288 B</text>
+    <text class="d-s" x="266" y="286">hard limit — the build fails if it goes over.</text>
+  </svg>
+  </button><figcaption><b>Where the words come from.</b> Replies are edited in <code>presets.json</code> and built with <code>npm run prompt</code>; the generated blocks in <code>index.js</code> are never touched by hand. Only the prompt's one-line index of reply descriptions is sent to the model — the reply text itself stays out of the prefix, which is what keeps the prompt at 63% of its limit. The local tests sweep every live string through the price gate before any of it can ship.</figcaption></figure>
+
+  </div>
+</div></section>
+
+<section id="watch"><div class="wrap">
+  <span class="eyebrow">The watchdog</span>
+  <h2>The one piece that must not live inside Kapso.</h2>
+  <p class="lead">A dead-man ping that dies with the thing it watches is not a dead-man ping. <code>harper-watch</code> runs on a separate Cloudflare account, has no dependencies and no storage of its own, on purpose.</p>
+  <div class="cards">
+    <div class="card"><span class="tag live">every 5 minutes</span><h3>Webhook sink</h3><p>Takes <code>workflow.execution.handoff</code> and conversation lifecycle events, opens and resolves escalations on harper-ops, and sends the PATCH that actually ends a handed-off execution. Nothing else releases one.</p></div>
+    <div class="card"><span class="tag live">every 5 minutes</span><h3>SLA sweep</h3><p>Lists open escalations, pages at 15 minutes unacknowledged, dedupes for an hour and digests past three alerts, so a bad night is one message rather than forty.</p></div>
+    <div class="card"><span class="tag live">every 5 minutes</span><h3>Stuck-execution sweep</h3><p>Branches on the last outbound staff message, never on how old the execution is — the correction that made it trustworthy in September.</p></div>
+    <div class="card"><span class="tag live">unconditional, last</span><h3>Dead man</h3><p>Pings Healthchecks.io at the end of every sweep whatever else failed, so silence itself raises an alarm. A per-day execution fuse of 200 stands in for the spend cap Kapso does not offer.</p></div>
+  </div>
+</div></section>
+
+<section id="runs"><div class="wrap">
+  <span class="eyebrow">What runs where</span>
+  <h2>Five accounts, one path.</h2>
+  <table>
+    <tr><th>Piece</th><th>Runs on</th><th>What it holds</th></tr>
+    <tr><td><code>harper-concierge</code></td><td>Kapso</td><td>The workflow: a trigger, two decide nodes and seven terminals. No business logic.</td></tr>
+    <tr><td><code>harper-ops</code></td><td>Cloudflare, via Kapso</td><td>Every decision, all 43 replies, the router, the price gate, the reply cap and the tools Claude is given.</td></tr>
+    <tr><td>KV</td><td>Cloudflare</td><td>Conversation state per phone number, 30-day TTL: opt-outs, the reply-cap window, escalation flags.</td></tr>
+    <tr><td>D1</td><td>Cloudflare</td><td>Open escalations, and the unmatched log of every free-text answer, masked, kept 90 days.</td></tr>
+    <tr><td><code>harper-watch</code></td><td>A different Cloudflare account</td><td>Nothing. No KV, no D1 — every piece of state it needs is in Kapso or in harper-ops' D1.</td></tr>
+    <tr><td>Claude Sonnet 5</td><td>Anthropic</td><td>Called on the hotel's own key, once per answer for most turns.</td></tr>
+    <tr><td>Room photos</td><td>harper-watch</td><td>Served as JPEG from the hotel's own website images, because Meta will not take the originals.</td></tr>
+  </table>
+</div></section>
+
+<section id="switches"><div class="wrap">
+  <span class="eyebrow">Switches</span>
+  <h2>Everything risky has an off switch.</h2>
+  <div class="cards">
+    <div class="card"><span class="tag live">on</span><h3><code>ROUTER_ENABLED</code></h3><p>Deleting the secret turns the fixed router off and sends taps and greetings to the model instead. That also turns the tap's cap exemption off, by design: if Claude answers the tap, the tap costs a slot.</p></div>
+    <div class="card"><span class="tag live">on</span><h3><code>PRESETS_ENABLED</code></h3><p>Set to <code>0</code> and the bot falls back to the older knowledge-base prompt. Worth knowing before you use it: that prompt still carries the facts corrected in October, so the rollback is currently a step backwards.</p></div>
+    <div class="card"><span class="tag off">off</span><h3><code>AVAILABILITY_ENABLED</code></h3><p>The GuestPro seam. Live availability needs working credentials and an inventory sync, so the bot sends every rate and availability question to the booking page instead.</p></div>
+    <div class="card"><span class="tag no">never</span><h3>A price in a message</h3><p>There is no tool that can look up a price, so the model knows none. The gate enforces it on the way out, in all three languages, including numbers the guest quoted first.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <p>Harper Boutique Hotel · Sutera Avenue, Kota Kinabalu · WhatsApp concierge in Malay, English and Chinese.</p>
+  <p>Architecture as built on 16 October 2026. Diagrams are drawn from the source, not from the plan.</p>
+</div></footer>
+
+<div id="lightbox"><div></div></div>
+<script>
+(function () {
+  var lb = document.getElementById('lightbox');
+  var slot = lb.firstElementChild;
+  document.querySelectorAll('.diagram .zoom').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      slot.innerHTML = btn.innerHTML;
+      lb.classList.add('on');
+    });
+  });
+  function close() { lb.classList.remove('on'); slot.innerHTML = ''; }
+  lb.addEventListener('click', close);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+})();
+</script>
+</body>
+</html>
